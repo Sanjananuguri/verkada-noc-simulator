@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Verkada NOC Simulator</title>
+<style>
+  :root{
+    --bg:#0A0E16;
+    --panel:#11161F;
+    --panel2:#161D29;
+    --line:#222C3A;
+    --text:#E7ECF3;
+    --muted:#7C8898;
+    --accent:#4C8DFF;
+    --good:#33D6A6;
+    --warn:#FFB454;
+    --bad:#FF5C6A;
+    --mono:'JetBrains Mono', 'SF Mono', Consolas, monospace;
+    --sans:'Inter', -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);height:100%;}
+  .app{display:grid;grid-template-columns:280px 1fr 360px;grid-template-rows:56px 1fr;height:100vh;}
+
+  .topbar{grid-column:1/4;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid var(--line);background:var(--panel);}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:13px;letter-spacing:.5px;color:var(--muted);}
+  .brand b{color:var(--text);font-size:14px;}
+  .status-pill{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--good);background:rgba(51,214,166,.08);border:1px solid rgba(51,214,166,.25);padding:4px 10px;border-radius:20px;}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--good);box-shadow:0 0 6px var(--good);}
+  .dot.bad{background:var(--bad);box-shadow:0 0 6px var(--bad);}
+
+  .sidebar{border-right:1px solid var(--line);padding:18px;overflow-y:auto;}
+  .sidebar h3{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:0 0 12px;}
+  .device-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;margin-bottom:4px;font-size:13px;cursor:default;transition:background .2s;}
+  .device-row:hover{background:var(--panel2);}
+  .device-row .dd{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:var(--good);}
+  .device-row .dd.bad{background:var(--bad);}
+  .device-row .dd.warn{background:var(--warn);}
+  .device-row .meta{color:var(--muted);font-family:var(--mono);font-size:11px;margin-left:auto;}
+
+  .main{padding:22px;overflow-y:auto;}
+  .main h2{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:0 0 16px;}
+  .topo{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:30px;min-height:340px;}
+  .node{position:absolute;display:flex;flex-direction:column;align-items:center;gap:6px;transition:all .4s ease;}
+  .node .box{width:54px;height:54px;border-radius:10px;border:1.5px solid var(--line);background:var(--panel2);display:flex;align-items:center;justify-content:center;font-size:20px;position:relative;transition:all .4s ease;}
+  .node .label{font-size:10px;font-family:var(--mono);color:var(--muted);text-align:center;white-space:nowrap;}
+  .node .pulse{position:absolute;top:-4px;right:-4px;width:10px;height:10px;border-radius:50%;background:var(--good);box-shadow:0 0 8px var(--good);}
+  .node .pulse.bad{background:var(--bad);box-shadow:0 0 10px var(--bad);animation:blink 1s infinite;}
+  .node .pulse.warn{background:var(--warn);box-shadow:0 0 10px var(--warn);}
+  .node.down .box{border-color:var(--bad);background:rgba(255,92,106,.08);}
+  .node.degraded .box{border-color:var(--warn);background:rgba(255,180,84,.08);}
+  @keyframes blink{50%{opacity:.3;}}
+
+  .line{position:absolute;background:var(--line);height:2px;transform-origin:left center;transition:background .4s;}
+  .line.bad{background:var(--bad);}
+  .line.active{background:var(--accent);}
+
+  .controls{margin-top:22px;}
+  .controls h3{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:0 0 10px;}
+  .btn-row{display:flex;flex-wrap:wrap;gap:10px;}
+  button.inject{background:var(--panel2);border:1px solid var(--line);color:var(--text);font-family:var(--mono);font-size:11.5px;padding:10px 14px;border-radius:8px;cursor:pointer;transition:all .15s;}
+  button.inject:hover{border-color:var(--bad);color:var(--bad);transform:translateY(-1px);}
+  button.inject:disabled{opacity:.35;cursor:not-allowed;transform:none;}
+  button.reset{background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:var(--mono);font-size:11.5px;padding:10px 14px;border-radius:8px;cursor:pointer;}
+  button.reset:hover{background:rgba(76,141,255,.1);}
+
+  .ticketpanel{border-left:1px solid var(--line);padding:18px;overflow-y:auto;background:var(--panel);}
+  .ticketpanel h3{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:0 0 12px;}
+  .empty{color:var(--muted);font-size:12px;font-family:var(--mono);padding:20px 0;text-align:center;border:1px dashed var(--line);border-radius:8px;}
+  .ticket{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px;animation:slidein .3s ease;}
+  @keyframes slidein{from{opacity:0;transform:translateX(12px);}to{opacity:1;transform:translateX(0);}}
+  .ticket .tid{font-family:var(--mono);font-size:10px;color:var(--muted);display:flex;justify-content:space-between;margin-bottom:6px;}
+  .ticket .ttitle{font-size:13px;font-weight:600;margin-bottom:8px;}
+  .ticket .step{font-family:var(--mono);font-size:11px;color:var(--muted);padding:4px 0 4px 16px;border-left:1px solid var(--line);position:relative;opacity:0;animation:fadein .3s ease forwards;}
+  .ticket .step::before{content:'';position:absolute;left:-4px;top:9px;width:7px;height:7px;border-radius:50%;background:var(--line);}
+  .ticket .step.done::before{background:var(--good);}
+  @keyframes fadein{to{opacity:1;}}
+  .ticket .resolution{margin-top:8px;font-size:11.5px;color:var(--good);background:rgba(51,214,166,.08);border:1px solid rgba(51,214,166,.2);padding:8px 10px;border-radius:6px;display:none;}
+  .ticket .resolution.show{display:block;}
+  .badge{font-size:9px;font-family:var(--mono);padding:2px 6px;border-radius:4px;background:rgba(255,92,106,.15);color:var(--bad);}
+  .badge.resolved{background:rgba(51,214,166,.15);color:var(--good);}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand">VERKADA <b>COMMAND</b> &nbsp;/&nbsp; NOC Simulator &nbsp;<span style="color:#3a4658">— built by S. Nuguri</span></div>
+    <div class="status-pill"><span class="dot" id="globalDot"></span><span id="globalStatus">ALL SYSTEMS NOMINAL</span></div>
+  </div>
+
+  <div class="sidebar">
+    <h3>Site — Castle Pines HQ</h3>
+    <div id="deviceList"></div>
+    <div class="controls">
+      <h3>Inject Incident</h3>
+      <div class="btn-row" id="btnRow"></div>
+      <button class="reset" id="resetBtn" style="margin-top:14px;width:100%;">↺ Reset Site</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <h2>Network Topology</h2>
+    <div class="topo" id="topo"></div>
+    <p style="color:var(--muted);font-size:11.5px;font-family:var(--mono);margin-top:14px;line-height:1.6;">
+      VLAN 10: Camera/Access traffic &nbsp;·&nbsp; VLAN 20: Corporate traffic &nbsp;·&nbsp; QoS: video prioritized DSCP EF<br>
+      Primary uplink: Fiber WAN &nbsp;·&nbsp; Failover: Cellular backup (AC43-G) &nbsp;·&nbsp; PoE budget: 370W / port bank
+    </p>
+  </div>
+
+  <div class="ticketpanel">
+    <h3>Ticket Queue</h3>
+    <div id="tickets"><div class="empty">No active incidents.<br>Inject a scenario to see TSE diagnostic flow.</div></div>
+  </div>
+</div>
+
+<script>
+const devices = [
+  {id:'wan',   icon:'🌐', label:'WAN Router', x:5,  y:10, status:'good'},
+  {id:'fw',    icon:'🛡️', label:'Firewall',   x:5,  y:42, status:'good'},
+  {id:'sw',    icon:'🔌', label:'PoE Switch (Bank A)', x:32, y:42, status:'good'},
+  {id:'ac43',  icon:'🚪', label:'AC43-G Controller', x:60, y:15, status:'good'},
+  {id:'ntp',   icon:'🕒', label:'NTP Source', x:60, y:65, status:'good'},
+  {id:'cam1',  icon:'📷', label:'Cam — Lobby', x:84, y:10, status:'good'},
+  {id:'cam2',  icon:'📷', label:'Cam — Dock', x:84, y:42, status:'good'},
+  {id:'cam3',  icon:'📷', label:'Cam — Lot', x:84, y:74, status:'good'},
+];
+const links = [['wan','fw'],['fw','sw'],['sw','ac43'],['sw','ntp'],['sw','cam1'],['sw','cam2'],['sw','cam3']];
+
+const topo = document.getElementById('topo');
+const deviceList = document.getElementById('deviceList');
+
+function renderTopo(){
+  topo.innerHTML='';
+  // links first (so nodes sit on top)
+  links.forEach(([a,b])=>{
+    const da=devices.find(d=>d.id===a), db=devices.find(d=>d.id===b);
+    const x1=da.x+4, y1=da.y+8, x2=db.x+4, y2=db.y+8;
+    const dx=x2-x1, dy=y2-y1;
+    const len=Math.sqrt(dx*dx+dy*dy);
+    const angle=Math.atan2(dy,dx)*180/Math.PI;
+    const line=document.createElement('div');
+    line.className='line';
+    line.id='line-'+a+'-'+b;
+    line.style.left=x1+'%'; line.style.top=y1+'%';
+    line.style.width=len+'%'; line.style.transform=`rotate(${angle}deg)`;
+    topo.appendChild(line);
+  });
+  devices.forEach(d=>{
+    const n=document.createElement('div');
+    n.className='node'; n.id='node-'+d.id;
+    n.style.left=d.x+'%'; n.style.top=d.y+'%';
+    n.innerHTML=`<div class="box">${d.icon}<div class="pulse" id="pulse-${d.id}"></div></div><div class="label">${d.label}</div>`;
+    topo.appendChild(n);
+  });
+}
+
+function renderDeviceList(){
+  deviceList.innerHTML='';
+  devices.forEach(d=>{
+    const row=document.createElement('div');
+    row.className='device-row';
+    row.innerHTML=`<div class="dd" id="dd-${d.id}"></div><div>${d.label}</div><div class="meta" id="meta-${d.id}">OK</div>`;
+    deviceList.appendChild(row);
+  });
+}
+
+function setDeviceStatus(id, status, metaText){
+  const d=devices.find(x=>x.id===id); d.status=status;
+  const node=document.getElementById('node-'+id);
+  const pulse=document.getElementById('pulse-'+id);
+  const dd=document.getElementById('dd-'+id);
+  const meta=document.getElementById('meta-'+id);
+  node.classList.remove('down','degraded');
+  pulse.classList.remove('bad','warn');
+  dd.classList.remove('bad','warn');
+  if(status==='bad'){ node.classList.add('down'); pulse.classList.add('bad'); dd.classList.add('bad'); meta.textContent=metaText||'DOWN'; meta.style.color='var(--bad)';}
+  else if(status==='warn'){ node.classList.add('degraded'); pulse.classList.add('warn'); dd.classList.add('warn'); meta.textContent=metaText||'DEGRADED'; meta.style.color='var(--warn)';}
+  else { meta.textContent=metaText||'OK'; meta.style.color='var(--muted)'; }
+}
+
+function setLink(a,b,cls){
+  const l=document.getElementById('line-'+a+'-'+b);
+  l.classList.remove('bad','active');
+  if(cls) l.classList.add(cls);
+}
+
+function setGlobal(ok){
+  const dot=document.getElementById('globalDot');
+  const txt=document.getElementById('globalStatus');
+  if(ok){ dot.classList.remove('bad'); txt.textContent='ALL SYSTEMS NOMINAL'; txt.parentElement.style.color='var(--good)'; }
+  else { dot.classList.add('bad'); txt.textContent='ACTIVE INCIDENT'; txt.parentElement.style.color='var(--bad)'; }
+}
+
+// ----- Scenario definitions (TSE diagnostic logic) -----
+const scenarios = {
+  wan_outage: {
+    label:'⚡ WAN Uplink Down',
+    title:'Primary WAN Uplink Down — Site Isolated',
+    badge:'P1 — Connectivity',
+    affect:()=>{ setDeviceStatus('wan','bad','LINK DOWN'); setLink('wan','fw','bad'); },
+    steps:[
+      'Detected loss of heartbeat from site gateway (3 missed intervals)',
+      'Confirmed fiber WAN interface down at router — no physical link',
+      'Checked AC43-G cellular backup status — modem registered, signal -78dBm (usable)',
+      'Initiated automatic failover to cellular backup path',
+      'Verified Command connectivity restored via cellular — cameras buffering locally, will sync on full recovery'
+    ],
+    resolve:()=>{ setDeviceStatus('wan','warn','CELLULAR FAILOVER'); setLink('wan','fw','active'); },
+    resolution:'Resolved via AC43-G cellular failover. Site operating in backup mode — flagged for ISP ticket on primary fiber.'
+  },
+  poe_budget: {
+    label:'⚡ PoE Budget Exceeded',
+    title:'PoE Switch — Power Budget Exceeded on Bank A',
+    badge:'P2 — Hardware',
+    affect:()=>{ setDeviceStatus('sw','warn','PoE OVER BUDGET'); setDeviceStatus('cam3','bad','NO POWER'); setLink('sw','cam3','bad'); },
+    steps:[
+      'Cam — Lot reporting offline, last seen 4 min ago',
+      'Checked switch port power draw: Bank A at 388W / 370W rated budget',
+      'Identified newly added device (3rd-gen bullet cam w/ IR illuminator) pushed bank over budget',
+      'Confirmed Cam — Lot was last device negotiated, lowest priority in PoE allocation order',
+      'Recommended fix: redistribute port to Bank B or upgrade to higher-budget PoE+ switch'
+    ],
+    resolve:()=>{ setDeviceStatus('sw','warn','REBALANCED'); setDeviceStatus('cam3','warn','REPOWERING'); setLink('sw','cam3','active'); },
+    resolution:'Temporary fix: moved Cam — Lot to Bank B port. Permanent fix ticket opened for PoE+ switch upgrade.'
+  },
+  ntp_drift: {
+    label:'⚡ NTP Drift / Cert Failure',
+    title:'Clock Drift Causing Certificate Validation Failures',
+    badge:'P2 — Auth',
+    affect:()=>{ setDeviceStatus('ntp','bad','DRIFT 340s'); setDeviceStatus('ac43','warn','CERT WARN'); setLink('sw','ntp','bad'); },
+    steps:[
+      'AC43-G controller intermittently dropping from Command — auth handshake failures',
+      'Checked controller system clock — drifted 340 seconds from Command server time',
+      'Verified NTP source device unreachable over VLAN 10 — DNS resolution timing out',
+      'Root cause: NTP source lost upstream sync after WAN blip earlier in shift',
+      'Manually forced NTP resync from secondary time source, cert validation restored'
+    ],
+    resolve:()=>{ setDeviceStatus('ntp','warn','RESYNCING'); setDeviceStatus('ac43','good','OK'); setLink('sw','ntp','active'); },
+    resolution:'NTP resynced from secondary source. Monitoring for repeat drift over next 24h.'
+  },
+  vlan_misconfig: {
+    label:'⚡ VLAN Misconfig',
+    title:'Cam — Dock Isolated After Switch Port Change',
+    badge:'P3 — Config',
+    affect:()=>{ setDeviceStatus('cam2','bad','VLAN MISMATCH'); setLink('sw','cam2','bad'); },
+    steps:[
+      'Cam — Dock unreachable from Command, but shows physical link up on switch',
+      'Pulled switch port config: port assigned to VLAN 20 (corporate) instead of VLAN 10 (camera)',
+      'Cross-checked install ticket — port was reconfigured during a desk move last week, not reverted',
+      'Corrected port to access VLAN 10, confirmed trunk allows VLAN 10 tag to upstream router',
+      'Camera re-registered with Command within 30 seconds of correction'
+    ],
+    resolve:()=>{ setDeviceStatus('cam2','good','OK'); setLink('sw','cam2',null); },
+    resolution:'Port reassigned to correct VLAN. Added note to change-management log to prevent recurrence.'
+  }
+};
+
+const btnRow = document.getElementById('btnRow');
+let ticketCounter = 1842;
+Object.entries(scenarios).forEach(([key,s])=>{
+  const b=document.createElement('button');
+  b.className='inject'; b.textContent=s.label; b.dataset.key=key;
+  b.onclick=()=>runScenario(key,b);
+  btnRow.appendChild(b);
+});
+
+function runScenario(key, btn){
+  const s = scenarios[key];
+  btn.disabled = true;
+  setGlobal(false);
+  s.affect();
+
+  const ticketsEl = document.getElementById('tickets');
+  if(ticketsEl.querySelector('.empty')) ticketsEl.innerHTML='';
+
+  const ticketId = 'INC-'+(ticketCounter++);
+  const card = document.createElement('div');
+  card.className='ticket';
+  card.innerHTML = `
+    <div class="tid"><span>${ticketId}</span><span class="badge">${s.badge}</span></div>
+    <div class="ttitle">${s.title}</div>
+    <div class="steps"></div>
+    <div class="resolution"></div>
+  `;
+  ticketsEl.prepend(card);
+  const stepsEl = card.querySelector('.steps');
+
+  s.steps.forEach((step,i)=>{
+    setTimeout(()=>{
+      const el=document.createElement('div');
+      el.className='step';
+      el.textContent = `[${new Date().toLocaleTimeString()}] ${step}`;
+      stepsEl.appendChild(el);
+      requestAnimationFrame(()=>el.classList.add('done'));
+    }, 500 + i*750);
+  });
+
+  setTimeout(()=>{
+    s.resolve();
+    const badge = card.querySelector('.badge');
+    badge.textContent = 'RESOLVED'; badge.classList.add('resolved');
+    const res = card.querySelector('.resolution');
+    res.textContent = '✓ ' + s.resolution;
+    res.classList.add('show');
+    setGlobal(true);
+    btn.disabled = false;
+  }, 500 + s.steps.length*750 + 600);
+}
+
+document.getElementById('resetBtn').onclick = ()=>{
+  devices.forEach(d=>setDeviceStatus(d.id,'good','OK'));
+  links.forEach(([a,b])=>setLink(a,b,null));
+  document.getElementById('tickets').innerHTML='<div class="empty">No active incidents.<br>Inject a scenario to see TSE diagnostic flow.</div>';
+  setGlobal(true);
+  document.querySelectorAll('button.inject').forEach(b=>b.disabled=false);
+};
+
+renderTopo();
+renderDeviceList();
+setGlobal(true);
+</script>
+</body>
+</html>
