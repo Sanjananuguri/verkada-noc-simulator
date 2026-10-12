@@ -4,7 +4,7 @@
 An interactive browser-based NOC dashboard that simulates how a Verkada TSE diagnoses and resolves real site failures — built directly in response to networking depth feedback from my Verkada Round 3 TSE interview.
 
 ## Live Demo
-👉 [sanjananuguri.github.io/verkada-noc-simulator](https://sanjananuguri.github.io/verkada-noc-simulator)
+👉 file:///C:/Users/sanja/Downloads/verkada-noc-simulator.html
 
 ## Why I Built This
 
