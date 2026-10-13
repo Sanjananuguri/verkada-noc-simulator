@@ -4,8 +4,7 @@
 An interactive browser-based NOC dashboard that simulates how a Verkada TSE diagnoses and resolves real site failures — built directly in response to networking depth feedback from my Verkada Round 3 TSE interview.
 
 ## Live Demo
-👉 file:///C:/Users/sanja/Downloads/verkada-noc-simulator.html
-
+👉 verkadanocsimulator.netlify.app
 ## Why I Built This
 
 After my Round 3 Verkada TSE interview, the feedback I received was that my networking depth needed work. Instead of just studying theory, I built three hands-on projects in Verkada's specific context. This NOC simulator is the third — it ties together networking knowledge and TSE diagnostic thinking in one interactive tool.
